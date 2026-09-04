@@ -299,3 +299,37 @@ The result is an actionable shortlist of bundles that satisfy both the AOV and r
 
 The totals reconcile exactly with GROW: 174 + 59 + 23 = 256 bundles, while 1,192 + 237 + 45 = 1,474 unsold tracks. This is expected because PROTECT groups the same candidate set differently rather than applying an additional filter.
 
+## Answer
+
+**Most bundles have substantial discount headroom.** Of the 256 candidates, 174 (68%) fall under **Wide headroom**, meaning they can absorb a discount of at least 40% before their price drops below the value of their anchor tracks.
+
+Across the portfolio’s $3,542 total list value:
+
+* **$1,569** comes from previously unsold tracks and represents potential incremental upside.
+* **$1,973** comes from anchor tracks and could be at risk if bundles are discounted too heavily.
+
+However, **wide percentage headroom does not always make a bundle worth launching**. Deep Purple’s *The Final Concerts (Disc 2)*, for example, can theoretically support a 75% discount, but its full list value is only $3.96. Because that is already below the current $5.65 AOV, even a full-price offer would not raise AOV.
+
+In contrast, *The Office, Season 2* combines both:
+
+* **72.7% break-even headroom**
+* **16 unsold tracks**
+* **$43.78 in total list value**
+
+This is the type of bundle worth prioritising: large enough to raise AOV and flexible enough to discount safely.
+
+* The discounted price remains above the current AOV.
+* The discount stays within the bundle’s break-even limit.
+
+The intersection of GROW, OPTIMIZE, and PROTECT—not any single metric—is the true launch list.
+
+**Recommendation:**
+
+1. Use the combined **GROW ∩ OPTIMIZE ∩ PROTECT** results as the launch list. Each bundle should have evidence of demand, enough value to raise AOV, and sufficient protection.
+
+2. Start qualifying bundles at **20% off**. This provides a meaningful customer incentive while staying within both the AOV and break-even limits of the combined shortlist.
+
+3. Keep the 23 **Discount cautiously** bundles at full or near-full price. Their average safe discount is only 13.8%, so deeper discounts could reduce revenue from tracks that might otherwise sell at full price.
+
+4. Monitor large TV and soundtrack bundles such as *The Office* and *Lost*. Although they have wide percentage headroom, they also contain the highest absolute `revenue_at_risk` values—between $11.94 and $17.91—so exceeding their discount limits could be costly.
+
