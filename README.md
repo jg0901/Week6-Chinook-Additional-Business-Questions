@@ -130,3 +130,172 @@ The `lead_anchor_track`—the album’s highest-selling track—should be featur
 **Recommendation:** Launch the first bundle campaign using albums that have both a high number of unsold tracks and a sell-through rate above the **55.8% catalogue average**. Strong candidates include Chico Buarque, U2, Chico Science & Nação Zumbi, and James Brown. Lower-sell-through candidates such as Lenny Kravitz can be tested in a second wave after the strategy has been validated.
 
 
+---
+
+# OPTIMIZE
+
+**Business question:** How should bundles be sized and priced to increase average order value (AOV)?
+
+**Fact:** InvoiceLine (`line_amount`, `quantity`)
+**Dimensions:** Track, Album
+
+---
+
+## Query walkthrough
+
+**1. Pricing view (`vw_optimize_bundle_pricing`)**
+
+This view cross-joins each of the 256 candidate albums from GROW with the single-row baseline containing the current AOV of $5.65. It then calculates each bundle’s price at three discount levels: 10%, 20%, and 30% off its total list value.
+
+A `CASE` statement assigns a `pricing_headroom` label based on the deepest discount the bundle can offer while keeping its price at or above the current AOV.
+
+The calculation uses the live baseline view instead of hardcoding $5.65. This allows the recommended pricing tier to update automatically when the underlying sales data changes.
+
+**2. Headroom summary**
+
+This query groups all 256 candidates by `pricing_headroom`. It shows how many bundles—and how many unsold tracks—can support each discount level while still meeting or exceeding the current AOV.
+
+**3. Minimum bundle size by discount tier**
+
+This separate calculation determines the minimum number of $0.99 tracks needed for a bundle to remain above the current AOV at each discount level.
+
+This acts as a simple pricing guardrail: choose a discount tier, then use the result to determine the minimum number of tracks the bundle should contain.
+
+---
+
+## Results
+
+**Pricing headroom across all 256 GROW candidates:**
+
+| Pricing headroom | Bundles | Avg bundle size | Avg list value | Dead tracks covered |
+|---|---|---|---|---|
+| Safe to 30% off | 223 | 14.2 | $15.01 | 1,389 |
+| Too small to discount | 13 | 3.5 | $3.50 | 24 |
+| Safe to 20% off | 12 | 8.0 | $7.92 | 34 |
+| Safe to 10% off | 8 | 7.0 | $6.93 | 27 |
+
+**Minimum bundle size to clear the $5.65 AOV, by discount tier:**
+
+| Discount | Min. tracks to clear AOV |
+|---|---|
+| 10% off | 7 |
+| 20% off | 8 |
+| 30% off | 9 |
+| 40% off | 10 |
+
+---
+
+## Answer
+
+**Bundle size creates room for discounts.** Of the 256 candidate bundles, 223 (87%) can be discounted by 30% and still remain above the current $5.65 average order value.
+
+These bundles contain an average of 14.2 tracks, with an average list value of $15.01. Even after a 30% discount, the average bundle price would be about $10.51—well above the current AOV. Together, they cover 1,389 of the 1,474 reachable unsold tracks (94%), meaning nearly the entire GROW opportunity has enough pricing flexibility.
+
+At the other end, 13 bundles contain an average of only 3.5 tracks, with a list value of about $3.50. Their full price is already below the current AOV, so discounting cannot solve the problem. These are sizing problems, not pricing problems.
+
+These smaller bundles should be:
+
+* Offered at full price as add-ons
+* Combined with another album by the same artist
+* Excluded from the bundle campaign
+
+**Recommendation—a simple sizing and pricing rule:**
+
+* **9 or more tracks:** up to 30% off
+* **8 tracks:** up to 20% off
+* **7 tracks:** up to 10% off
+* **6 tracks:** full price
+* **5 or fewer tracks:** expand the bundle or exclude it
+
+This rule ensures that each bundle remains at or above the current $5.65 AOV.
+
+
+In practice: default new bundles to **20–30% off** since almost all GROW
+candidates clear that bar comfortably, and only fall back to a smaller
+discount (or none) for the minority of albums under ~8 tracks.
+
+---
+
+# PROTECT
+
+**Business question:** How much can we discount a bundle before it earns less than selling its tracks individually—and how can we avoid discounting tracks that customers would have purchased at full price?
+
+**Fact:** InvoiceLine (`line_amount`)
+**Dimensions:** Track, Album
+
+## Query walkthrough
+
+**1. Break-even view (`vw_protect_bundle_breakeven`)**
+
+This view divides each candidate bundle’s `bundle_list_value` into two parts:
+
+* `revenue_at_risk`: the value of the anchor tracks. Because these tracks have sold before, discounting them could reduce revenue from purchases that might have occurred at full price.
+* `incremental_upside`: the value of the unsold tracks. Since these tracks have no previous sales, their value represents the bundle’s potential additional revenue.
+
+The break-even discount is the point at which the discounted bundle price equals the full list value of its anchor tracks:
+
+```text
+max_safe_discount = 1 - (anchor_value / bundle_list_value)
+```
+
+Discounting beyond this point would make the bundle earn less than the anchor tracks could have earned separately, even if it helps move unsold tracks.
+
+A `CASE` statement then classifies each bundle’s discount headroom as **Wide**, **Moderate**, or **Discount cautiously**.
+
+**2. Safest-bundles query**
+
+This query ranks candidates by `max_safe_discount_pct DESC`. Bundles rank higher when anchor tracks make up a smaller share of their total value, meaning more of the discount is supported by tracks with no previous sales.
+
+**3. Portfolio rollup**
+
+This query totals `incremental_upside` and `revenue_at_risk` across all 256 candidate bundles and groups them by `discount_risk`. This shows how much potential bundle value comes from unsold tracks and how much comes from previously purchased tracks that could be cannibalized.
+
+**4. Combined recommendation**
+
+The final query joins the PROTECT results with the OPTIMIZE pricing view. It keeps only bundles that:
+
+* Can support a 20–30% discount while remaining above the current AOV
+* Have at least 20% break-even headroom before risking anchor-track revenue
+
+The result is an actionable shortlist of bundles that satisfy both the AOV and revenue-protection requirements.
+
+**Safest bundles** (highest break-even discount, most dead-stock-heavy):
+
+| Artist | Album | Size | Anchors | Dead | List value | Revenue at risk | Incremental upside | % Incremental | Max safe discount | Risk |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Deep Purple | The Final Concerts (Disc 2) | 4 | 1 | 3 | $3.96 | $0.99 | $2.97 | 75.0 | 75.0% | Wide headroom |
+| The Office | The Office, Season 2 | 22 | 6 | 16 | $43.78 | $11.94 | $31.84 | 72.7 | 72.7% | Wide headroom |
+| Chris Cornell | Carry On | 14 | 4 | 10 | $13.86 | $3.96 | $9.90 | 71.4 | 71.4% | Wide headroom |
+| Black Sabbath | Black Sabbath | 7 | 2 | 5 | $6.93 | $1.98 | $4.95 | 71.4 | 71.4% | Wide headroom |
+| Audioslave | Revelations | 14 | 5 | 9 | $14.86 | $4.95 | $9.91 | 66.7 | 66.7% | Wide headroom |
+| Led Zeppelin | Physical Graffiti [Disc 1] | 6 | 2 | 4 | $5.94 | $1.98 | $3.96 | 66.7 | 66.7% | Wide headroom |
+| The Office | The Office, Season 1 | 6 | 2 | 4 | $11.94 | $3.98 | $7.96 | 66.7 | 66.7% | Wide headroom |
+| Gilberto Gil | Quanta Gente Veio ver–Bônus De Carnaval | 3 | 1 | 2 | $2.97 | $0.99 | $1.98 | 66.7 | 66.7% | Wide headroom |
+| Lulu Santos | Lulu Santos – RCA 100 Anos De Música... | 14 | 5 | 9 | $13.86 | $4.95 | $8.91 | 64.3 | 64.3% | Wide headroom |
+| Gilberto Gil | As Canções de Eu Tu Eles | 14 | 5 | 9 | $13.86 | $4.95 | $8.91 | 64.3 | 64.3% | Wide headroom |
+| Lost | Lost, Season 1 | 25 | 9 | 16 | $49.75 | $17.91 | $31.84 | 64.0 | 64.0% | Wide headroom |
+| U2 | All That You Can't Leave Behind | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| The Doors | The Doors | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Iron Maiden | A Real Live One | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Pearl Jam | Ten | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Jamiroquai | The Return Of The Space Cowboy | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Foo Fighters | One By One | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Skank | O Samba Poconé | 11 | 4 | 7 | $10.89 | $3.96 | $6.93 | 63.6 | 63.6% | Wide headroom |
+| Apocalyptica | Plays Metallica By Four Cellos | 8 | 3 | 5 | $7.92 | $2.97 | $4.95 | 62.5 | 62.5% | Wide headroom |
+| Santana | Santana – As Years Go By | 8 | 3 | 5 | $7.92 | $2.97 | $4.95 | 62.5 | 62.5% | Wide headroom |
+| Pearl Jam | Pearl Jam | 13 | 5 | 8 | $12.87 | $4.95 | $7.92 | 61.5 | 61.5% | Wide headroom |
+| Black Label Society | Alcohol Fueled Brewtality Live! [Disc 1] | 13 | 5 | 8 | $12.87 | $4.95 | $7.92 | 61.5 | 61.5% | Wide headroom |
+| Vinícius De Moraes | Vinicius De Moraes | 15 | 6 | 9 | $14.85 | $5.94 | $8.91 | 60.0 | 60.0% | Wide headroom |
+| Motörhead | Ace Of Spades | 15 | 6 | 9 | $14.85 | $5.94 | $8.91 | 60.0 | 60.0% | Wide headroom |
+| Foo Fighters | In Your Honor [Disc 1] | 10 | 4 | 6 | $9.90 | $3.96 | $5.94 | 60.0 | 60.0% | Wide headroom |
+
+**Portfolio view — how much of the programme is incremental vs. at risk:**
+
+| Discount risk | Bundles | Dead tracks | Incremental upside | Revenue at risk | Avg. safe discount |
+|---|---|---|---|---|---|
+| Wide headroom | 174 | 1,192 | $1,284.08 | $1,130.43 | 53.1% |
+| Moderate headroom | 59 | 237 | $240.63 | $570.42 | 29.7% |
+| Discount cautiously | 23 | 45 | $44.55 | $272.25 | 13.8% |
+
+The totals reconcile exactly with GROW: 174 + 59 + 23 = 256 bundles, while 1,192 + 237 + 45 = 1,474 unsold tracks. This is expected because PROTECT groups the same candidate set differently rather than applying an additional filter.
+
