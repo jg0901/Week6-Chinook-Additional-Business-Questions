@@ -1,1 +1,1 @@
-# Week6HW-Chinook-Business-Questions-Grow-Optimize-Protect-Themes-
+# Week6: Chinook Additional Business Questions (Grow, Optimize, Protect)
